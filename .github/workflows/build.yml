@@ -6,6 +6,7 @@ on:
     branches: [ main ]
     paths-ignore:
       - BUILD_FAILURE.log
+      - dist/**
 
 permissions:
   contents: write
@@ -57,19 +58,16 @@ jobs:
           python3 - <<'PY'
           from PIL import Image, ImageDraw, ImageFont, ImageFilter
           from pathlib import Path
-          import math, os
+          import os
 
           W,H = 941,1672
           lime=(215,255,0)
           ink=(16,21,21)
-          navy=(7,18,23)
           cyan=(0,216,229)
           magenta=(240,42,152)
 
           im=Image.new('RGB',(W,H),lime)
           d=ImageDraw.Draw(im)
-
-          # Large dark/teal planetary body, matching the established Marathon HUD direction.
           cx,cy=575,500
           r=360
           planet=Image.new('RGBA',(W,H),(0,0,0,0))
@@ -80,8 +78,6 @@ jobs:
           planet=planet.filter(ImageFilter.GaussianBlur(1.2))
           im=Image.alpha_composite(im.convert('RGBA'),planet).convert('RGB')
           d=ImageDraw.Draw(im)
-
-          # HUD reticle and framing.
           for rr,w in [(150,4),(235,3),(320,2)]:
               d.ellipse((cx-rr,cy-rr,cx+rr,cy+rr),outline=ink,width=w)
           d.line((cx-410,cy,cx+330,cy),fill=ink,width=3)
@@ -89,8 +85,6 @@ jobs:
           d.rectangle((48,75,250,84),fill=ink)
           d.rectangle((48,102,165,111),fill=cyan)
           d.rectangle((48,129,115,138),fill=magenta)
-
-          # Edge ticks and technical blocks.
           for i in range(9):
               y=250+i*130
               d.line((28,y,58,y),fill=ink,width=3)
@@ -101,8 +95,6 @@ jobs:
               d.rectangle((110,yy,760,yy+10),fill=(177,205,0))
               d.rectangle((110,yy,110+int(650*frac),yy+10),fill=ink if i<3 else magenta)
           d.rectangle((770,1215,830,1230),fill=cyan)
-
-          # Use a system font if present.
           candidates=['/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf']
           fp=next((x for x in candidates if os.path.exists(x)),None)
           font_big=ImageFont.truetype(fp,42) if fp else ImageFont.load_default()
@@ -112,7 +104,6 @@ jobs:
           d.text((60,258),'SYSTEM ONLINE',fill=cyan,font=font_mid)
           d.text((110,1208),'BIOSYNCHRONIZATION // 93%',fill=ink,font=font_mid)
           d.text((60,1565),'MARATHON PROTOCOL',fill=ink,font=font_big)
-
           out=Path('tools/source_art.jpg')
           im.save(out,'JPEG',quality=90,optimize=True)
           print('Rebuilt valid source artwork:',out,out.stat().st_size,'bytes')
@@ -139,6 +130,19 @@ jobs:
         with:
           name: Marathon-Theme-Installer
           path: Marathon_Theme_Installer.apk
+
+      - name: Publish APK to repository
+        if: success()
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp Marathon_Theme_Installer.apk dist/Marathon_Theme_Installer.apk
+          printf 'Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist/BUILD_SUCCESS.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/Marathon_Theme_Installer.apk dist/BUILD_SUCCESS.txt
+          git commit -m "Publish Marathon Theme Installer APK [skip ci]" || true
+          git push || true
 
       - name: Persist failure diagnostics to repository
         if: failure()
