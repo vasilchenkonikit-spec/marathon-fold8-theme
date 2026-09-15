@@ -15,17 +15,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore final v4 project payload
         run: |
-          EXPECT_P2='73840eaf15f62e0ac565fb2fa917d136a6378b55f7c686217fc098754cf41d25'
-          head -c 18000 v4src/part_02.b64 > /tmp/p2_head
-          tail -c 18000 v4src/part_02.b64 > /tmp/p2_tail
-          if echo "$EXPECT_P2  /tmp/p2_head" | sha256sum -c -; then
-            cp /tmp/p2_head /tmp/p2
-          elif echo "$EXPECT_P2  /tmp/p2_tail" | sha256sum -c -; then
-            cp /tmp/p2_tail /tmp/p2
-          else
-            echo 'part_02 mismatch'; sha256sum /tmp/p2_head /tmp/p2_tail; exit 1
-          fi
-          { cat v4src/part_01.b64; cat /tmp/p2; cat v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } | tr -cd 'A-Za-z0-9+/=' > payload.b64
+          echo '297e19fbed6237b0838d395422e6c645f6142968c6d6bbd26c4aad21f19a74d5  v4src/part_02a.b64' | sha256sum -c -
+          echo '00da9066ad5468529bc603328528a00e22ad322c796c64f24e27f716a4c2e3da  v4src/part_02b.b64' | sha256sum -c -
+          { cat v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } | tr -cd 'A-Za-z0-9+/=' > payload.b64
           test "$(wc -c < payload.b64)" -eq 231220
           base64 -d payload.b64 > source_project_v4_min.zip
           echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v4_min.zip' | sha256sum -c -
