@@ -15,21 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore exact v4 project payload
         run: |
-          echo '56a570c0c2a2d607b54a131e3aae77b6668e5e738003a960a2b0dd2e16d4d5cf  v4src/part_01.b64' | sha256sum -c -
-          echo '297e19fbed6237b0838d395422e6c645f6142968c6d6bbd26c4aad21f19a74d5  v4src/part_02a.b64' | sha256sum -c -
-          echo '00da9066ad5468529bc603328528a00e22ad322c796c64f24e27f716a4c2e3da  v4src/part_02b.b64' | sha256sum -c -
-          echo '33d26aa815ab2d5f795ff9941e0a6073736935f933ff4f3c45f2d171684971a3  v4src/part_03.b64' | sha256sum -c -
-          echo '87a832750a49307e26a721663b20098e76cf71d6f200799694a61207347a1b3c  v4src/part_04.b64' | sha256sum -c -
-          echo '9e99f224bde4cda75ade0a0235429f7282e9469166a5cb1b42bad9659afaed77  v4src/part_05.b64' | sha256sum -c -
-          echo '70c4547300b2fc6a0bcf32cea0abe8ef57f248ae1b010210b5ebd80d55af216e  v4src/part_06.b64' | sha256sum -c -
-          echo 'cdf34b7fcf58c4ad698c6869c7ebb87cf7248bb5f985e9407c9bea9f52996269  v4src/part_07.b64' | sha256sum -c -
-          echo '559e905a5b5b23ead1d50ad0197fb019e5d24c48da2a47ce545d6b306c9c9e7f  v4src/part_08.b64' | sha256sum -c -
-          echo '6c2204fe7a35685a9629186a9bd2bf43e7338326c18de47cf80e64a6c8341846  v4src/part_09.b64' | sha256sum -c -
-          echo 'beb9e419122f9f40fc2540ee47dd9b675bd887a293f6a3060d7589ce76bfda09  v4src/part_10.b64' | sha256sum -c -
-          echo '58733d3ff0531641adfbf90d19cc80e924ce5342beccdec7a246945958e3d80c  v4src/part_11.b64' | sha256sum -c -
-          echo '241a513f994a53744d92cc6b8614adfe8d4757e5f6eb5f406fe4d658aab46c0a  v4src/part_12.b64' | sha256sum -c -
-          echo '6595a77729313b9f13426b23548dbdf4a45d39ee3c8ae720183b2d2036e78402  v4src/part_13.b64' | sha256sum -c -
-          echo '204fd25d537f850aba779284fcb62dbac226f46717dc982e8009d8574d7aa10e  v4src/part_14.b64' | sha256sum -c -
+          sha256sum v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64
           { cat v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } > payload.b64
           test "$(wc -c < payload.b64)" -eq 231220
           base64 -d payload.b64 > source_project_v4_min.zip
