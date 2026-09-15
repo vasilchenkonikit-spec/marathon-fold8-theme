@@ -5,7 +5,6 @@ on:
   push:
     branches: [ v4-auto-installer ]
     paths:
-      - 'v4src/**'
       - '.github/workflows/build-v4.yml'
 
 permissions:
