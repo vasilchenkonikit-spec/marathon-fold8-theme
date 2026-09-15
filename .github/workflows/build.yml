@@ -1,12 +1,12 @@
-name: Build Marathon APK
+name: Build Marathon Fold8 v3
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ v3-production ]
     paths-ignore:
-      - BUILD_FAILURE.log
-      - dist/**
+      - dist-v3/**
+      - BUILD_FAILURE_V3.log
 
 permissions:
   contents: write
@@ -17,11 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack Android project
-        shell: bash
+      - name: Restore Android project
         run: |
-          set -o pipefail
-          unzip -o source_project.zip 2>&1 | tee unzip.log
+          unzip -o source_project.zip
+          python3 patch_v3.py
 
       - uses: actions/setup-java@v4
         with:
@@ -31,138 +30,55 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install Android SDK 35
-        shell: bash
         run: |
-          set -o pipefail
-          {
-            echo "ANDROID_HOME=$ANDROID_HOME"
-            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-            sdkmanager --version
-            yes | sdkmanager --licenses || true
-            sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          } 2>&1 | tee sdk.log
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Install Pillow
-        shell: bash
+      - name: Generate theme assets
         run: |
-          set -o pipefail
-          python3 -m pip install --disable-pip-version-check Pillow 2>&1 | tee pip.log
+          python3 -m pip install --disable-pip-version-check Pillow
+          python3 tools/generate_assets.py
+          cp app/src/main/res/drawable-nodpi/wallpaper_lock.jpg app/src/main/res/drawable-nodpi/wallpaper_cover.jpg
+          cp app/src/main/res/drawable-nodpi/wallpaper_home.jpg app/src/main/res/drawable-nodpi/wallpaper_inner.jpg
 
-      - name: Rebuild valid Marathon source artwork
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from PIL import Image, ImageDraw, ImageFont, ImageFilter
-          from pathlib import Path
-          import os
+      - name: Build APK
+        run: gradle :app:assembleDebug --stacktrace
 
-          W,H = 941,1672
-          lime=(215,255,0)
-          ink=(16,21,21)
-          cyan=(0,216,229)
-          magenta=(240,42,152)
-
-          im=Image.new('RGB',(W,H),lime)
-          d=ImageDraw.Draw(im)
-          cx,cy=575,500
-          r=360
-          planet=Image.new('RGBA',(W,H),(0,0,0,0))
-          pd=ImageDraw.Draw(planet)
-          pd.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(9,58,60,255))
-          pd.ellipse((cx-r+85,cy-r+45,cx+r-55,cy+r-90),fill=(15,113,108,170))
-          pd.arc((cx-r-55,cy-r+40,cx+r+55,cy+r-15),190,355,fill=(235,255,22,210),width=5)
-          planet=planet.filter(ImageFilter.GaussianBlur(1.2))
-          im=Image.alpha_composite(im.convert('RGBA'),planet).convert('RGB')
-          d=ImageDraw.Draw(im)
-          for rr,w in [(150,4),(235,3),(320,2)]:
-              d.ellipse((cx-rr,cy-rr,cx+rr,cy+rr),outline=ink,width=w)
-          d.line((cx-410,cy,cx+330,cy),fill=ink,width=3)
-          d.line((cx,cy-400,cx,cy+390),fill=ink,width=3)
-          d.rectangle((48,75,250,84),fill=ink)
-          d.rectangle((48,102,165,111),fill=cyan)
-          d.rectangle((48,129,115,138),fill=magenta)
-          for i in range(9):
-              y=250+i*130
-              d.line((28,y,58,y),fill=ink,width=3)
-              d.line((W-58,y,W-28,y),fill=ink,width=3)
-          d.rounded_rectangle((60,1180,881,1510),radius=28,outline=ink,width=4)
-          for i,frac in enumerate([.82,.62,.93,.48]):
-              yy=1260+i*55
-              d.rectangle((110,yy,760,yy+10),fill=(177,205,0))
-              d.rectangle((110,yy,110+int(650*frac),yy+10),fill=ink if i<3 else magenta)
-          d.rectangle((770,1215,830,1230),fill=cyan)
-          candidates=['/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf']
-          fp=next((x for x in candidates if os.path.exists(x)),None)
-          font_big=ImageFont.truetype(fp,42) if fp else ImageFont.load_default()
-          font_mid=ImageFont.truetype(fp,22) if fp else ImageFont.load_default()
-          d.text((60,175),'TAU CETI IV',fill=ink,font=font_big)
-          d.text((60,225),'RUNNER // NV-01',fill=ink,font=font_mid)
-          d.text((60,258),'SYSTEM ONLINE',fill=cyan,font=font_mid)
-          d.text((110,1208),'BIOSYNCHRONIZATION // 93%',fill=ink,font=font_mid)
-          d.text((60,1565),'MARATHON PROTOCOL',fill=ink,font=font_big)
-          out=Path('tools/source_art.jpg')
-          im.save(out,'JPEG',quality=90,optimize=True)
-          print('Rebuilt valid source artwork:',out,out.stat().st_size,'bytes')
-          PY
-
-      - name: Generate Marathon assets
-        shell: bash
-        run: |
-          set -o pipefail
-          python3 tools/generate_assets.py 2>&1 | tee generate.log
-          echo "Generated resources:"
-          find app/src/main/res -maxdepth 2 -type f | sort | tail -n 120
-
-      - name: Build installable APK
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle :app:assembleDebug --stacktrace --info 2>&1 | tee build.log
-
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Marathon_Theme_Installer.apk
+      - name: Prepare APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Marathon_Fold8_Theme_v3.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Marathon-Theme-Installer
-          path: Marathon_Theme_Installer.apk
+          name: Marathon-Fold8-Theme-v3
+          path: Marathon_Fold8_Theme_v3.apk
 
-      - name: Publish APK to repository
+      - name: Publish APK
         if: success()
-        shell: bash
         run: |
-          mkdir -p dist
-          cp Marathon_Theme_Installer.apk dist/Marathon_Theme_Installer.apk
-          printf 'Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist/BUILD_SUCCESS.txt
+          mkdir -p dist-v3
+          cp Marathon_Fold8_Theme_v3.apk dist-v3/Marathon_Fold8_Theme_v3.apk
+          printf 'Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v3/BUILD_SUCCESS.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist/Marathon_Theme_Installer.apk dist/BUILD_SUCCESS.txt
-          git commit -m "Publish Marathon Theme Installer APK [skip ci]" || true
+          git add dist-v3
+          git commit -m "Publish Marathon Fold8 v3 APK [skip ci]" || true
           git push || true
 
-      - name: Persist failure diagnostics to repository
+      - name: Save diagnostics
         if: failure()
-        shell: bash
         run: |
           {
-            echo "MARATHON APK BUILD FAILURE"
+            echo "MARATHON FOLD8 V3 BUILD FAILURE"
             echo "UTC: $(date -u)"
             echo "SHA: $GITHUB_SHA"
-            echo
-            echo "=== FILES ==="
-            find . -maxdepth 4 -type f | sort | head -n 250
-            for f in unzip.log sdk.log pip.log generate.log build.log; do
-              echo
-              echo "=== $f ==="
-              if [ -f "$f" ]; then tail -n 350 "$f"; else echo "not created"; fi
-            done
-          } > BUILD_FAILURE.log
+            find app/src/main -maxdepth 5 -type f | sort | head -n 250
+          } > BUILD_FAILURE_V3.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add BUILD_FAILURE.log
-          git commit -m "Save failed APK build diagnostics [skip ci]" || true
+          git add BUILD_FAILURE_V3.log
+          git commit -m "Save v3 build diagnostics [skip ci]" || true
           git push || true
