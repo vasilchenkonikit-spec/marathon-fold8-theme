@@ -15,7 +15,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore final v4 project payload
         run: |
-          cat v4src/part_*.b64 | tr -d '\n\r' | base64 -d > source_project_v4_min.zip
+          cat v4src/part_*.b64 | tr -cd 'A-Za-z0-9+/=' > payload.b64
+          wc -c payload.b64
+          base64 -d payload.b64 > source_project_v4_min.zip
+          sha256sum source_project_v4_min.zip
           echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v4_min.zip' | sha256sum -c -
           unzip -t source_project_v4_min.zip
           rm -rf v4build && mkdir v4build
