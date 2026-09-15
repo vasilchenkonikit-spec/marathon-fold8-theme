@@ -2,8 +2,6 @@ name: Build Marathon Fold8 v4
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ v4-auto-installer ]
 
 permissions:
   contents: write
