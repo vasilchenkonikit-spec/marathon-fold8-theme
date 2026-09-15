@@ -1,0 +1,51 @@
+from pathlib import Path
+import re, shutil
+root=Path('.')
+java=root/'app/src/main/java/com/nv/marathontheme'
+res=root/'app/src/main/res'
+(java).mkdir(parents=True,exist_ok=True)
+(res/'xml').mkdir(parents=True,exist_ok=True)
+(res/'drawable-nodpi').mkdir(parents=True,exist_ok=True)
+(res/'values').mkdir(parents=True,exist_ok=True)
+# copy agreed assets directly - no procedural overlays/crosshairs
+shutil.copy2(root/'assets_src/cover_source.jpg',res/'drawable-nodpi/wallpaper_cover.jpg')
+shutil.copy2(root/'assets_src/inner_source.jpg',res/'drawable-nodpi/wallpaper_inner.jpg')
+for p in (root/'assets_src/icons').glob('*'):
+    shutil.copy2(p,res/'drawable-nodpi'/p.name)
+
+(root/'app/src/main/AndroidManifest.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-permission android:name="android.permission.SET_WALLPAPER"/><uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.READ_CALENDAR"/>
+ <queries><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
+  <package android:name="com.samsung.android.themedesigner"/><package android:name="com.samsung.android.keyscafe"/><package android:name="com.samsung.android.goodlock"/>
+ </queries>
+ <application android:allowBackup="true" android:icon="@drawable/ic_launcher" android:label="Marathon Fold 8" android:theme="@style/AppTheme">
+  <activity android:name=".SetupActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+  <activity android:name=".LauncherActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="unspecified">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.HOME"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
+  </activity>
+  <service android:name=".MarathonWallpaperService" android:permission="android.permission.BIND_WALLPAPER" android:exported="true"><intent-filter><action android:name="android.service.wallpaper.WallpaperService"/></intent-filter><meta-data android:name="android.service.wallpaper" android:resource="@xml/wallpaper"/></service>
+  <service android:name=".MarathonAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="Marathon Auto Setup"><intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter><meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_service_config"/></service>
+ </application>
+</manifest>''')
+(res/'xml/wallpaper.xml').write_text('''<?xml version="1.0" encoding="utf-8"?><wallpaper xmlns:android="http://schemas.android.com/apk/res/android" android:description="@string/wallpaper_desc"/>''')
+(res/'xml/accessibility_service_config.xml').write_text('''<?xml version="1.0" encoding="utf-8"?><accessibility-service xmlns:android="http://schemas.android.com/apk/res/android" android:description="@string/accessibility_desc" android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked" android:accessibilityFeedbackType="feedbackGeneric" android:notificationTimeout="100" android:canRetrieveWindowContent="true" android:canPerformGestures="true" android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"/>''')
+(res/'values/strings.xml').write_text('''<?xml version="1.0" encoding="utf-8"?><resources><string name="app_name">Marathon Fold 8</string><string name="wallpaper_desc">Marathon 93 adaptive wallpaper</string><string name="accessibility_desc">Automatically applies Marathon settings after you explicitly enable this service.</string></resources>''')
+(res/'values/colors.xml').write_text('''<resources><color name="acid">#D6FF00</color><color name="black">#050806</color></resources>''')
+(res/'values/styles.xml').write_text('''<resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">#D6FF00</item><item name="android:navigationBarColor">#050806</item><item name="android:statusBarColor">#00000000</item><item name="android:windowLightStatusBar">false</item></style></resources>''')
+
+# richer icon-pack mappings for Samsung variants
+appfilter='''<?xml version="1.0" encoding="utf-8"?><resources><iconback img1="iconback"/><iconupon img1="iconupon"/><scale factor="0.72"/>
+'''
+items={
+'ic_phone':['com.samsung.android.dialer/.DialtactsActivity','com.samsung.android.contacts/com.android.dialer.DialtactsActivity'],
+'ic_messages':['com.samsung.android.messaging/com.android.mms.ui.ConversationComposer'],
+'ic_camera':['com.sec.android.app.camera/.Camera','com.sec.android.app.camera/com.sec.android.app.camera.Camera'],
+'ic_gallery':['com.sec.android.gallery3d/.app.GalleryOpaqueActivity','com.sec.android.gallery3d/com.samsung.android.gallery.app.activity.GalleryActivity'],
+'ic_settings':['com.android.settings/com.android.settings.Settings'],
+'ic_clock':['com.sec.android.app.clockpackage/.ClockPackage','com.sec.android.app.clockpackage/com.sec.android.app.clockpackage.ClockPackage'],
+'ic_calendar':['com.samsung.android.calendar/com.samsung.android.app.calendar.activity.MainActivity','com.samsung.android.calendar/com.android.calendar.AllInOneActivity'],
+'ic_internet':['com.sec.android.app.sbrowser/.SBrowserMainActivity','com.sec.android.app.sbrowser/com.sec.android.app.sbrowser.SBrowserMainActivity'],
+'ic_files':['com.sec.android.app.myfiles/.common.MainActivity','com.sec.android.app.myfiles/.external.ui.MainActivity','com.sec.android.app.myfiles/com.sec.android.app.myfiles.external.ui.MainActivity'],
+'ic_contacts':['com.samsung.android.contacts/.contactslist.PeopleActivity','com.samsung.android.contacts/com.android.contacts.activities.PeopleActivity','com.samsung.android.app.contacts/com.samsun
