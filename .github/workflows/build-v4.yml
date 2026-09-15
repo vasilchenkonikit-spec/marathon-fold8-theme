@@ -19,6 +19,7 @@ jobs:
 
       - name: Restore final v4 project payload
         run: |
+          for f in v4src/part_*.b64; do printf '%s ' "$f"; tr -d '\n\r' < "$f" | sha256sum; done
           cat v4src/part_*.b64 | tr -d '\n\r' | base64 -d > source_project_v4_min.zip
           unzip -t source_project_v4_min.zip
           rm -rf v4build
