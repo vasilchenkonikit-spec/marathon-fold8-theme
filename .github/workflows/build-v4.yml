@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [ v4-auto-installer ]
-    paths:
-      - '.github/workflows/build-v4.yml'
 
 permissions:
   contents: write
@@ -15,36 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Restore final v4 project payload
         run: |
-          for f in v4src/part_*.b64; do printf '%s ' "$f"; tr -d '\n\r' < "$f" | sha256sum; done
           cat v4src/part_*.b64 | tr -d '\n\r' | base64 -d > source_project_v4_min.zip
+          echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v4_min.zip' | sha256sum -c -
           unzip -t source_project_v4_min.zip
-          rm -rf v4build
-          mkdir v4build
+          rm -rf v4build && mkdir v4build
           unzip -q source_project_v4_min.zip -d v4build
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Install Android SDK 35
         run: |
-          echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
           yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
-          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
       - name: Build v4 APK
         working-directory: v4build
         run: gradle :app:assembleDebug --stacktrace
-
       - name: Verify APK
         run: |
           APK=v4build/app/build/outputs/apk/debug/app-debug.apk
@@ -52,22 +41,20 @@ jobs:
           /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner verify --verbose "$APK"
           cp "$APK" Marathon_Fold8_Auto_Installer_v4.apk
           sha256sum Marathon_Fold8_Auto_Installer_v4.apk > SHA256.txt
-
       - uses: actions/upload-artifact@v4
         with:
           name: Marathon-Fold8-Auto-v4
           path: |
             Marathon_Fold8_Auto_Installer_v4.apk
             SHA256.txt
-
       - name: Publish APK
         run: |
           mkdir -p dist-v4
           cp Marathon_Fold8_Auto_Installer_v4.apk dist-v4/
           cp SHA256.txt dist-v4/
           printf 'Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v4/BUILD_SUCCESS.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add dist-v4
-          git commit -m "Publish Marathon Fold8 v4 APK [skip ci]" || true
+          git commit -m 'Publish Marathon Fold8 v4 APK [skip ci]' || true
           git push || true
