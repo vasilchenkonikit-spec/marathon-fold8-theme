@@ -1,0 +1,15 @@
+MARATHON FOLD8 V3 BUILD FAILURE
+UTC: Tue Sep 15 14:34:06 UTC 2026
+SHA: b324c543bf255dd9b489a8749562a3a4f5f979c5
+app/src/main/AndroidManifest.xml
+app/src/main/assets/appfilter.xml
+app/src/main/assets/drawable.xml
+app/src/main/java/com/nv/marathontheme/MainActivity.java
+app/src/main/java/com/nv/marathontheme/MarathonAccessibilityService.java
+app/src/main/java/com/nv/marathontheme/MarathonWallpaperService.java
+app/src/main/res/values/colors.xml
+app/src/main/res/values/strings.xml
+app/src/main/res/values/styles.xml
+app/src/main/res/xml/accessibility_service_config.xml
+app/src/main/res/xml/appfilter.xml
+app/src/main/res/xml/wallpaper.xml
