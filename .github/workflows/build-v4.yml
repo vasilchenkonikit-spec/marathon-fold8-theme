@@ -1,4 +1,4 @@
-name: Build Marathon Fold8 v4
+name: Build Marathon Fold8 v4.1
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [ v4-auto-installer ]
     paths-ignore:
       - dist-v4/**
+      - dist-v41/**
 
 permissions:
   contents: write
@@ -17,7 +18,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore exact v4 project payload
         run: |
-          sha256sum v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64
           { cat v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } > payload.b64
           test "$(wc -c < payload.b64)" -eq 231220
           base64 -d payload.b64 > source_project_v4_min.zip
@@ -25,19 +25,28 @@ jobs:
           unzip -t source_project_v4_min.zip
           rm -rf v4build && mkdir v4build
           unzip -q source_project_v4_min.zip -d v4build
-      - name: Patch missing v4 resources
+      - name: Patch Android resources
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('v4build/app/src/main/res/values/strings.xml')
           s=p.read_text()
-          add='\n<string name="accessibility_desc">Automatically applies Marathon settings after explicit permission.</string>\n<string name="wallpaper_name">Marathon 93 Adaptive Wallpaper</string>\n'
           if 'name="accessibility_desc"' not in s:
-              s=s.replace('</resources>',add+'</resources>')
+              s=s.replace('</resources>','<string name="accessibility_desc">Automatically applies Marathon settings after explicit permission.</string>\n</resources>')
           if 'name="wallpaper_name"' not in s:
               s=s.replace('</resources>','<string name="wallpaper_name">Marathon 93 Adaptive Wallpaper</string>\n</resources>')
           p.write_text(s)
           PY
+      - name: Apply v4.1 responsive Marathon Home
+        run: |
+          base64 -d v4patch/LauncherActivity_v41.java.gz.b64 | gzip -d > v4build/app/src/main/java/com/nv/marathontheme/LauncherActivity.java
+          sed -i 's/applicationId "com.nv.marathontheme.v4"/applicationId "com.nv.marathontheme.v41"/' v4build/app/build.gradle
+          sed -i 's/versionCode 40/versionCode 41/' v4build/app/build.gradle || true
+          sed -i 's/versionName "4.0"/versionName "4.1"/' v4build/app/build.gradle || true
+          sed -i 's/Marathon Fold 8/Marathon Fold 8 v4.1/g' v4build/app/src/main/AndroidManifest.xml
+          sed -i 's/AUTO INSTALLER v4/AUTO INSTALLER v4.1/g' v4build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
+          grep -n 'applicationId\|versionCode\|versionName' v4build/app/build.gradle
+          grep -n 'class LauncherActivity' v4build/app/src/main/java/com/nv/marathontheme/LauncherActivity.java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -49,7 +58,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build v4 APK
+      - name: Build v4.1 APK
         working-directory: v4build
         run: gradle :app:assembleDebug --stacktrace
       - name: Verify APK
@@ -57,22 +66,22 @@ jobs:
           APK=v4build/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner verify --verbose "$APK"
-          cp "$APK" Marathon_Fold8_Auto_Installer_v4.apk
-          sha256sum Marathon_Fold8_Auto_Installer_v4.apk > SHA256.txt
+          cp "$APK" Marathon_Fold8_Auto_Installer_v4_1.apk
+          sha256sum Marathon_Fold8_Auto_Installer_v4_1.apk > SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Marathon-Fold8-Auto-v4
+          name: Marathon-Fold8-Auto-v4-1
           path: |
-            Marathon_Fold8_Auto_Installer_v4.apk
+            Marathon_Fold8_Auto_Installer_v4_1.apk
             SHA256.txt
       - name: Publish APK
         run: |
-          mkdir -p dist-v4
-          cp Marathon_Fold8_Auto_Installer_v4.apk dist-v4/
-          cp SHA256.txt dist-v4/
-          printf 'Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v4/BUILD_SUCCESS.txt
+          mkdir -p dist-v41
+          cp Marathon_Fold8_Auto_Installer_v4_1.apk dist-v41/
+          cp SHA256.txt dist-v41/
+          printf 'Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v41/BUILD_SUCCESS.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add dist-v4
-          git commit -m 'Publish Marathon Fold8 v4 APK [skip ci]' || true
+          git add dist-v41
+          git commit -m 'Publish Marathon Fold8 v4.1 APK [skip ci]' || true
           git push || true
