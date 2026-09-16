@@ -28,6 +28,7 @@ jobs:
       - name: Apply v6 all-in-one patch
         run: |
           cp v6patch/SetupActivity.java v6build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
+          sed -i 's/launchOneUi();/launchOneUi(this);/' v6build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
           cp v6patch/MarathonAccessibilityService.java v6build/app/src/main/java/com/nv/marathontheme/MarathonAccessibilityService.java
           cp v6patch/MarathonWallpaperService.java v6build/app/src/main/java/com/nv/marathontheme/MarathonWallpaperService.java
           cp v6patch/AndroidManifest.xml v6build/app/src/main/AndroidManifest.xml
