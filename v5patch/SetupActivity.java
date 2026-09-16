@@ -3,6 +3,7 @@ package com.nv.marathontheme;
 import android.app.*;
 import android.app.WallpaperManager;
 import android.content.*;
+import android.content.pm.ResolveInfo;
 import android.graphics.*;
 import android.os.*;
 import android.provider.Settings;
@@ -13,6 +14,7 @@ import java.util.*;
 public class SetupActivity extends Activity {
     private static final int ACID = Color.rgb(205,255,0);
     private static final int BG = Color.rgb(5,8,6);
+    private static final String ONEUI = "com.sec.android.app.launcher";
     private TextView status;
     private SharedPreferences prefs;
 
@@ -21,13 +23,13 @@ public class SetupActivity extends Activity {
 
     private void buildUi(){
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(28),dp(34),dp(28),dp(24)); root.setBackgroundColor(BG);
-        TextView title=text("MARATHON // FOLD 8\nONE UI INSTALLER v5",34,ACID,true); root.addView(title);
-        TextView sub=text("Keeps Samsung One UI Home, your pages, widgets, swipe-up app drawer and search. The installer only applies Marathon visual layers.",16,Color.WHITE,false); sub.setPadding(0,dp(18),0,dp(24)); root.addView(sub);
+        TextView title=text("MARATHON // FOLD 8\nONE UI INSTALLER v5.1",34,ACID,true); root.addView(title);
+        TextView sub=text("Keeps Samsung One UI Home, your current pages, widget positions, swipe-up app drawer and Samsung search. Existing widgets stay native and clickable.",16,Color.WHITE,false); sub.setPadding(0,dp(18),0,dp(24)); root.addView(sub);
         status=text("",15,Color.LTGRAY,false); root.addView(status);
         Button install=button("INSTALL MARATHON"); install.setOnClickListener(v->startInstall()); root.addView(install,new LinearLayout.LayoutParams(-1,dp(58)));
         Space sp=new Space(this); root.addView(sp,new LinearLayout.LayoutParams(1,dp(14)));
-        Button home=button("RETURN TO ONE UI HOME"); home.setOnClickListener(v->openOneUiHome()); root.addView(home,new LinearLayout.LayoutParams(-1,dp(52)));
-        TextView note=text("v5 does not replace the launcher and does not create fake widgets. Existing Samsung/TickTick widgets remain real and clickable.",13,Color.GRAY,false); note.setPadding(0,dp(22),0,0); root.addView(note);
+        Button home=button("RESTORE ONE UI HOME"); home.setOnClickListener(v->restoreOneUiHome()); root.addView(home,new LinearLayout.LayoutParams(-1,dp(52)));
+        TextView note=text("v5.1 never becomes your launcher and never replaces Samsung/TickTick widgets with fake panels. TickTick widgets, weather, clock, calendar and other existing widgets remain their original apps.",13,Color.GRAY,false); note.setPadding(0,dp(22),0,0); root.addView(note);
         setContentView(root); refreshStatus();
     }
 
@@ -39,7 +41,7 @@ public class SetupActivity extends Activity {
         prefs.edit().putBoolean("install_requested",true).apply();
         if(!isAccessibilityEnabled()){
             prefs.edit().putBoolean("waiting_accessibility",true).apply();
-            status.setText("1/3 Enable Marathon Auto Setup once. Android requires this confirmation.");
+            status.setText("1/3 Enable Marathon Auto Setup once. After that the installer continues automatically.");
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             return;
         }
@@ -47,20 +49,31 @@ public class SetupActivity extends Activity {
     }
 
     private void beginSetup(){
-        prefs.edit().putBoolean("waiting_accessibility",false).putBoolean("setup_active",true).putString("stage","themepark").apply();
+        prefs.edit().putBoolean("waiting_accessibility",false).putBoolean("setup_active",true).apply();
+        if(!isOneUiDefault()){
+            prefs.edit().putString("stage","home_default").apply();
+            status.setText("2/3 Restoring Samsung One UI Home as the default launcher…");
+            try{ startActivity(new Intent(Settings.ACTION_HOME_SETTINGS)); }
+            catch(Exception e){ restoreOneUiHome(); }
+            return;
+        }
+        continueVisualSetup();
+    }
+
+    void continueVisualSetup(){
+        prefs.edit().putString("stage","themepark").apply();
         applyWallpaper();
-        status.setText("2/3 Wallpaper applied. Opening Theme Park for automatic icon styling…");
+        status.setText("2/3 One UI Home preserved. Applying Marathon wallpaper and icon layer…");
         if(!launchPackage("com.samsung.android.themedesigner") && !launchPackage("com.samsung.android.goodlock")){
-            prefs.edit().putString("stage","themepark_missing").apply();
-            status.setText("Theme Park/Good Lock is not installed. One UI Home has been preserved.");
+            prefs.edit().putString("stage","themepark_missing").putBoolean("setup_active",false).apply();
+            status.setText("Theme Park/Good Lock is not installed. One UI Home and all widgets were preserved.");
         }
     }
 
     private void applyWallpaper(){
         try{
             Bitmap home=BitmapFactory.decodeResource(getResources(),R.drawable.wallpaper_inner);
-            WallpaperManager wm=WallpaperManager.getInstance(this);
-            wm.setBitmap(home,null,true,WallpaperManager.FLAG_SYSTEM);
+            WallpaperManager.getInstance(this).setBitmap(home,null,true,WallpaperManager.FLAG_SYSTEM);
         }catch(Exception ignored){}
     }
 
@@ -75,15 +88,28 @@ public class SetupActivity extends Activity {
         return enabled.toLowerCase(Locale.ROOT).contains(id.toLowerCase(Locale.ROOT));
     }
 
-    private void openOneUiHome(){
-        Intent i=new Intent(Intent.ACTION_MAIN); i.addCategory(Intent.CATEGORY_HOME); i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i);
+    private boolean isOneUiDefault(){
+        try{
+            Intent i=new Intent(Intent.ACTION_MAIN); i.addCategory(Intent.CATEGORY_HOME);
+            ResolveInfo r=getPackageManager().resolveActivity(i,0);
+            return r!=null && r.activityInfo!=null && ONEUI.equals(r.activityInfo.packageName);
+        }catch(Exception e){ return false; }
+    }
+
+    private void restoreOneUiHome(){
+        try{
+            Intent i=getPackageManager().getLaunchIntentForPackage(ONEUI);
+            if(i!=null){ i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(i); }
+            if(!isOneUiDefault()) startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
+        }catch(Exception e){ try{ startActivity(new Intent(Settings.ACTION_HOME_SETTINGS)); }catch(Exception ignored){} }
     }
 
     private void refreshStatus(){
         if(status==null)return;
         String stage=prefs.getString("stage","idle");
-        if("done".equals(stage)) status.setText("Installed. Samsung One UI Home remains active; native gestures and widgets are untouched.");
-        else if(isAccessibilityEnabled()) status.setText("Ready. Marathon Auto Setup permission is enabled.");
-        else status.setText("Ready. One UI Home will not be replaced.");
+        if("done".equals(stage)) status.setText("Installed. One UI Home, Samsung gestures/search and all native widgets are preserved.");
+        else if(!isOneUiDefault()) status.setText("One UI Home is not currently the default launcher. INSTALL MARATHON will restore it first.");
+        else if(isAccessibilityEnabled()) status.setText("Ready. One UI Home is active and Marathon Auto Setup permission is enabled.");
+        else status.setText("Ready. One UI Home will remain the launcher.");
     }
 }
