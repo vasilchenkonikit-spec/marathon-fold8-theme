@@ -42,6 +42,8 @@ jobs:
           x=sp.read_text()
           if 'name="accessibility_desc"' not in x:
               x=x.replace('</resources>','<string name="accessibility_desc">One-time Marathon setup automation for Theme Park. One UI Home remains unchanged.</string>\n</resources>')
+          if 'name="wallpaper_name"' not in x:
+              x=x.replace('</resources>','<string name="wallpaper_name">Marathon 93 Wallpaper</string>\n</resources>')
           sp.write_text(x)
           PY
           grep -n 'applicationId\|versionCode\|versionName' v5build/app/build.gradle
