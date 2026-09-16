@@ -7,85 +7,150 @@ import android.content.*;
 import android.content.pm.*;
 import android.graphics.*;
 import android.os.*;
-import android.provider.Settings;
-import android.text.TextUtils;
 import android.view.*;
 import android.widget.*;
 import java.util.*;
 
 public class SetupActivity extends Activity {
-    static final String PREF = "marathon_v6";
-    static final String ONE_UI = "com.sec.android.app.launcher";
+    static final String PREF = "marathon_v7";
     static final String THEME_PARK = "com.samsung.android.themedesigner";
     static final String KEYS_CAFE = "com.samsung.android.keyscafe";
     static final String GOOD_LOCK = "com.samsung.android.goodlock";
     static final String CLOCK_FACE = "com.samsung.android.app.clockface";
     static final String LOCK_STAR = "com.samsung.systemui.lockstar";
+    static final String TICKTICK = "com.ticktick.task";
     static final int ACID = Color.rgb(214,255,0);
     static final int BG = Color.rgb(5,8,6);
+    static final int PANEL = Color.rgb(18,22,18);
 
     private SharedPreferences prefs;
-    private TextView status;
-    private boolean firstResume=true;
+    private LinearLayout root;
+    private int step;
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         prefs=getSharedPreferences(PREF,MODE_PRIVATE);
-        buildUi();
+        step=prefs.getInt("step",0);
+        render();
     }
 
     @Override protected void onResume(){
         super.onResume();
-        String stage=prefs.getString("stage","idle");
-        boolean active=prefs.getBoolean("setup_active",false);
-
-        if(prefs.getBoolean("waiting_accessibility",false) && isAccessibilityEnabled()){
-            beginSetup();
-            firstResume=false;
-            return;
-        }
-
-        // When the Android live-wallpaper UI closes, continue automatically.
-        // v6.0 stopped here because it only refreshed the status text.
-        if(!firstResume && active && "wallpaper_picker".equals(stage)){
-            continueAfterWallpaper();
-            firstResume=false;
-            return;
-        }
-
-        firstResume=false;
-        refreshStatus();
+        step=prefs.getInt("step",step);
+        render();
     }
 
-    private void buildUi(){
+    private void render(){
         ScrollView scroll=new ScrollView(this);
         scroll.setBackgroundColor(BG);
-        LinearLayout root=new LinearLayout(this);
+        root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(26),dp(32),dp(26),dp(34));
+        root.setPadding(dp(24),dp(28),dp(24),dp(32));
+        scroll.removeAllViews();
         scroll.addView(root);
         setContentView(scroll);
 
-        root.addView(text("MARATHON // FOLD 8",32,ACID,true));
-        root.addView(text("COMPLETE ONE UI INSTALLER v6.1",18,Color.WHITE,true));
-        TextView info=text("ONE APK. Samsung One UI Home stays intact: native swipe-up, app drawer, Samsung search and your existing widget layout are preserved. The installer applies the Marathon visual layer and then returns to One UI.",15,Color.LTGRAY,false);
-        info.setPadding(0,dp(16),0,dp(20)); root.addView(info);
+        root.addView(text("MARATHON // FOLD 8",30,ACID,true));
+        root.addView(text("STABLE ONE UI INSTALLER v7.0",17,Color.WHITE,true));
+        addSpace(10);
+        TextView safe=text("One UI Home остаётся штатным. Свайп вверх, поиск Samsung, список приложений, папки и твоя текущая раскладка виджетов не меняются.",14,Color.LTGRAY,false);
+        root.addView(safe);
+        addSpace(18);
 
-        status=text("",15,Color.WHITE,false);
-        status.setPadding(0,0,0,dp(16)); root.addView(status);
+        if(step<=0) welcome();
+        else if(step==1) wallpaperStep();
+        else if(step==2) iconStep();
+        else if(step==3) keyboardStep();
+        else if(step==4) lockStep();
+        else if(step==5) tickTickStep();
+        else finishStep();
+    }
 
-        Button install=new Button(this);
-        install.setText("INSTALL EVERYTHING");
-        install.setTextSize(17);
-        install.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        install.setAllCaps(false);
-        install.setTextColor(BG);
-        install.setBackgroundColor(ACID);
-        install.setOnClickListener(v->startInstall());
-        root.addView(install,new LinearLayout.LayoutParams(-1,dp(62)));
+    private void welcome(){
+        addProgress("0 / 5");
+        addCard("Одна стабильная установка", "Я убрал автоклики Accessibility. Они и были причиной зависаний в Theme Park. Теперь приложение само открывает нужный модуль Samsung, а ты подтверждаешь только то, что Android/Samsung не разрешают сделать стороннему APK. После каждого модуля возвращаешься сюда и жмёшь одну кнопку «ГОТОВО, ДАЛЬШЕ».\n\nВ комплекте: Marathon-обои, live wallpaper, Marathon icon pack, настройки клавиатуры, блокировки и TickTick. Твоя раскладка One UI не перестраивается.");
+        addPrimary("НАЧАТЬ УСТАНОВКУ", ()->{ setStep(1); applyStaticWallpapers(); render(); });
+    }
 
-        TextView details=text("Sequence: permission -> Marathon wallpaper -> Theme Park/icons -> Keys Cafe -> ClockFace/LockStar -> TickTick widget request -> One UI Home. Samsung/Android may still show confirmation dialogs that third-party apps are not allowed to approve themselves.",13,Color.GRAY,false);
-        details.setPadding(0,dp(20),0,0); root.addView(details);
+    private void wallpaperStep(){
+        addProgress("1 / 5  ОБОИ");
+        addCard("Обои уже встроены в APK", "4K-версия применяется автоматически как статический резерв. Для адаптивного варианта Fold нажми кнопку ниже и один раз подтверди системное «Установить обои». Больше здесь ничего настраивать не нужно.");
+        addPrimary("ОТКРЫТЬ LIVE WALLPAPER", ()->launchWallpaperPicker(this));
+        addSecondary("ГОТОВО, ДАЛЬШЕ", ()->{setStep(2);render();});
+        addTertiary("Повторно применить 4K-обои", this::applyStaticWallpapers);
+    }
+
+    private void iconStep(){
+        addProgress("2 / 5  ИКОНКИ");
+        addCard("Theme Park: только этот короткий блок", "1. Нажми «ОТКРЫТЬ THEME PARK».\n2. Внизу выбери Icon.\n3. Нажми + / Create new.\n4. В редакторе нажми Iconpack.\n5. Выбери Marathon Fold 8 / Marathon 93.\n6. Нажми значок сохранения справа сверху, название: MARATHON 93.\n7. Открой сохранённый пакет и нажми Apply.\n8. Вернись сюда.\n\nЭто единственный надёжный способ на твоей версии Theme Park. Никаких автоматических кликов и зависаний.");
+        addPrimary("ОТКРЫТЬ THEME PARK", ()->{ if(!launchPackage(this,THEME_PARK)) launchPackage(this,GOOD_LOCK); });
+        addSecondary("ГОТОВО, ДАЛЬШЕ", ()->{setStep(3);render();});
+    }
+
+    private void keyboardStep(){
+        addProgress("3 / 5  КЛАВИАТУРА");
+        addCard("Keys Cafe", "Нажми «ОТКРЫТЬ KEYS CAFE» -> Style your own keyboard -> создай/открой стиль и примени Marathon-схему:\n\nфон: #050806\nклавиши: #121612\nакцент: #D6FF00\nтекст: #F1F2EA\n\nНажми Apply и вернись сюда. Если клавиатуру сейчас менять не хочешь, этот шаг можно пропустить.");
+        addPrimary("ОТКРЫТЬ KEYS CAFE", ()->{ if(!launchPackage(this,KEYS_CAFE)) launchPackage(this,GOOD_LOCK); });
+        addSecondary("ГОТОВО, ДАЛЬШЕ", ()->{setStep(4);render();});
+        addTertiary("ПРОПУСТИТЬ", ()->{setStep(4);render();});
+    }
+
+    private void lockStep(){
+        addProgress("4 / 5  ЭКРАН БЛОКИРОВКИ");
+        addCard("ClockFace / LockStar", "Твоя цель здесь только визуальная: крупные технические часы, минимум лишних элементов, чёрный + acid lime. Нажми кнопку, примени вариант для экрана блокировки и вернись сюда. One UI Home это не затрагивает.");
+        addPrimary("ОТКРЫТЬ CLOCKFACE / LOCKSTAR", ()->{ if(!launchPackage(this,CLOCK_FACE)) if(!launchPackage(this,LOCK_STAR)) launchPackage(this,GOOD_LOCK); });
+        addSecondary("ГОТОВО, ДАЛЬШЕ", ()->{setStep(5);render();});
+        addTertiary("ПРОПУСТИТЬ", ()->{setStep(5);render();});
+    }
+
+    private void tickTickStep(){
+        addProgress("5 / 5  TICKTICK");
+        addCard("Настоящий виджет TickTick", "Я не заменяю твой домашний экран и не двигаю существующие виджеты. Кнопка ниже вызывает штатное Android-подтверждение настоящего виджета TickTick. Если свободного места нет или ты хочешь поставить его в конкретное место, открой TickTick/виджеты One UI и поставь его вручную. Нажатия по нему будут работать как обычно.");
+        addPrimary("ДОБАВИТЬ ВИДЖЕТ TICKTICK", ()->{
+            boolean ok=requestTickTickWidget(this);
+            if(!ok){ Toast.makeText(this,"Виджет TickTick не найден. Открой TickTick и добавь его через штатное меню виджетов One UI.",Toast.LENGTH_LONG).show(); launchPackage(this,TICKTICK); }
+        });
+        addSecondary("ЗАВЕРШИТЬ", ()->{setStep(6);render();});
+        addTertiary("НЕ МЕНЯТЬ МОИ ВИДЖЕТЫ", ()->{setStep(6);render();});
+    }
+
+    private void finishStep(){
+        addProgress("ГОТОВО");
+        addCard("Marathon установлен поверх One UI", "Штатный Samsung launcher не заменён. Свайп вверх, Samsung Search и список приложений остаются системными. Установщик можно оставить для повторного доступа к настройкам или удалить после завершения: применённые обои/настройки Theme Park останутся.");
+        addPrimary("НА ГЛАВНЫЙ ЭКРАН", ()->{ Intent h=new Intent(Intent.ACTION_MAIN); h.addCategory(Intent.CATEGORY_HOME); startActivity(h); });
+        addSecondary("НАЧАТЬ ЗАНОВО", ()->{setStep(1);applyStaticWallpapers();render();});
+    }
+
+    private void addProgress(String s){
+        TextView t=text(s,14,ACID,true); t.setPadding(0,0,0,dp(10)); root.addView(t);
+    }
+
+    private void addCard(String title,String body){
+        LinearLayout card=new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(18),dp(18),dp(18),dp(18));
+        GradientDrawable gd=new GradientDrawable();
+        gd.setColor(PANEL); gd.setCornerRadius(dp(14)); gd.setStroke(dp(1),ACID);
+        card.setBackground(gd);
+        card.addView(text(title,20,Color.WHITE,true));
+        TextView b=text(body,15,Color.LTGRAY,false); b.setPadding(0,dp(10),0,0); card.addView(b);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.setMargins(0,0,0,dp(16));
+        root.addView(card,lp);
+    }
+
+    private void addPrimary(String label,Runnable r){ addButton(label,ACID,BG,r); }
+    private void addSecondary(String label,Runnable r){ addButton(label,Color.WHITE,BG,r); }
+    private void addTertiary(String label,Runnable r){ addButton(label,PANEL,Color.LTGRAY,r); }
+
+    private void addButton(String label,int bg,int fg,Runnable r){
+        Button b=new Button(this);
+        b.setText(label); b.setTextSize(16); b.setAllCaps(false); b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        b.setTextColor(fg);
+        GradientDrawable gd=new GradientDrawable(); gd.setColor(bg); gd.setCornerRadius(dp(8));
+        if(bg==PANEL) gd.setStroke(dp(1),Color.DKGRAY);
+        b.setBackground(gd); b.setOnClickListener(v->r.run());
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58)); lp.setMargins(0,0,0,dp(10));
+        root.addView(b,lp);
     }
 
     private TextView text(String s,int size,int color,boolean bold){
@@ -93,84 +158,36 @@ public class SetupActivity extends Activity {
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t;
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
-
-    private void startInstall(){
-        prefs.edit().clear().putBoolean("install_requested",true).apply();
-        if(!isAccessibilityEnabled()){
-            prefs.edit().putBoolean("waiting_accessibility",true).putString("stage","permission").putLong("stage_time",System.currentTimeMillis()).apply();
-            status.setText("1/6 Enable Marathon Auto Setup once. Returning here continues automatically.");
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            return;
-        }
-        beginSetup();
-    }
-
-    private void beginSetup(){
-        prefs.edit().putBoolean("waiting_accessibility",false).putBoolean("setup_active",true).putString("stage","ensure_home").putLong("stage_time",System.currentTimeMillis()).apply();
-        applyStaticFallback();
-        if(!isOneUiHomeDefault()){
-            status.setText("2/6 Restoring Samsung One UI Home before visual setup…");
-            try{ startActivity(new Intent(Settings.ACTION_HOME_SETTINGS)); }
-            catch(Exception e){ launchOneUi(this); launchWallpaperPicker(this); }
-        }else{
-            status.setText("2/6 One UI Home preserved. Opening Marathon wallpaper…");
-            launchWallpaperPicker(this);
-        }
-    }
-
-    private void continueAfterWallpaper(){
-        prefs.edit().putString("stage","themepark").putLong("stage_time",System.currentTimeMillis()).apply();
-        status.setText("3/6 Wallpaper done. Opening Theme Park automatically…");
-        if(!launchPackage(this,THEME_PARK)){
-            if(!launchPackage(this,GOOD_LOCK)){
-                prefs.edit().putString("stage","themepark_missing").apply();
-                status.setText("Theme Park/Good Lock was not found. One UI Home is still intact.");
-            }
-        }
-    }
+    private void addSpace(int v){ Space s=new Space(this); root.addView(s,new LinearLayout.LayoutParams(1,dp(v))); }
+    private void setStep(int s){ step=s; prefs.edit().putInt("step",s).apply(); }
 
     static void launchWallpaperPicker(Context c){
-        c.getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("stage","wallpaper_picker").putLong("stage_time",System.currentTimeMillis()).apply();
         try{
             Intent i=new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
             i.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,new ComponentName(c,MarathonWallpaperService.class));
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             c.startActivity(i);
         }catch(Exception e){
-            try{ Intent i=new Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER); i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); c.startActivity(i); }catch(Exception ignored){}
+            try{ c.startActivity(new Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)); }
+            catch(Exception ignored){ Toast.makeText(c,"Не удалось открыть системный выбор обоев",Toast.LENGTH_LONG).show(); }
         }
     }
 
-    private void applyStaticFallback(){
+    private void applyStaticWallpapers(){
         try{
             WallpaperManager wm=WallpaperManager.getInstance(this);
             Bitmap inner=BitmapFactory.decodeResource(getResources(),R.drawable.wallpaper_inner_4k);
             Bitmap cover=BitmapFactory.decodeResource(getResources(),R.drawable.wallpaper_cover_4k);
             wm.setBitmap(inner,null,true,WallpaperManager.FLAG_SYSTEM);
             wm.setBitmap(cover,null,true,WallpaperManager.FLAG_LOCK);
-        }catch(Exception ignored){}
-    }
-
-    boolean isOneUiHomeDefault(){
-        try{
-            Intent i=new Intent(Intent.ACTION_MAIN); i.addCategory(Intent.CATEGORY_HOME);
-            ResolveInfo r=getPackageManager().resolveActivity(i,PackageManager.MATCH_DEFAULT_ONLY);
-            return r!=null && r.activityInfo!=null && ONE_UI.equals(r.activityInfo.packageName);
-        }catch(Exception e){return false;}
-    }
-
-    static void launchOneUi(Context c){
-        try{
-            Intent i=c.getPackageManager().getLaunchIntentForPackage(ONE_UI);
-            if(i!=null){i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);c.startActivity(i);return;}
-        }catch(Exception ignored){}
-        Intent h=new Intent(Intent.ACTION_MAIN); h.addCategory(Intent.CATEGORY_HOME); h.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); c.startActivity(h);
+            Toast.makeText(this,"4K Marathon-обои применены",Toast.LENGTH_SHORT).show();
+        }catch(Exception e){ Toast.makeText(this,"Не удалось применить статические обои автоматически",Toast.LENGTH_LONG).show(); }
     }
 
     static boolean launchPackage(Context c,String pkg){
         try{
             Intent i=c.getPackageManager().getLaunchIntentForPackage(pkg);
-            if(i==null)return false; i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); c.startActivity(i); return true;
+            if(i==null)return false;
+            c.startActivity(i); return true;
         }catch(Exception e){return false;}
     }
 
@@ -179,38 +196,18 @@ public class SetupActivity extends Activity {
         try{
             AppWidgetManager m=AppWidgetManager.getInstance(c);
             if(!m.isRequestPinAppWidgetSupported())return false;
-            AppWidgetProviderInfo best=null, fallback=null;
+            AppWidgetProviderInfo best=null,fallback=null;
             PackageManager pm=c.getPackageManager();
             for(AppWidgetProviderInfo p:m.getInstalledProviders()){
                 String pkg=p.provider.getPackageName().toLowerCase(Locale.ROOT);
                 if(!pkg.contains("ticktick"))continue;
                 if(fallback==null)fallback=p;
                 String label="";
-                try{CharSequence cs=p.loadLabel(pm);if(cs!=null)label=cs.toString().toLowerCase(Locale.ROOT);}catch(Exception ignored){}
-                if(label.contains("calendar")||label.contains("month")||label.contains("календар")||label.contains("agenda")){best=p;break;}
+                try{CharSequence cs=p.loadLabel(pm); if(cs!=null)label=cs.toString().toLowerCase(Locale.ROOT);}catch(Exception ignored){}
+                if(label.contains("calendar")||label.contains("month")||label.contains("agenda")||label.contains("календар")){best=p;break;}
             }
             if(best==null)best=fallback;
-            if(best==null)return false;
-            c.getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("stage","ticktick_pin").putLong("stage_time",System.currentTimeMillis()).apply();
-            return m.requestPinAppWidget(best.provider,null,null);
+            return best!=null && m.requestPinAppWidget(best.provider,null,null);
         }catch(Exception e){return false;}
-    }
-
-    private boolean isAccessibilityEnabled(){
-        String enabled=Settings.Secure.getString(getContentResolver(),Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if(enabled==null)return false;
-        String mine=new ComponentName(this,MarathonAccessibilityService.class).flattenToString();
-        TextUtils.SimpleStringSplitter split=new TextUtils.SimpleStringSplitter(':'); split.setString(enabled);
-        while(split.hasNext())if(mine.equalsIgnoreCase(split.next()))return true;
-        return false;
-    }
-
-    private void refreshStatus(){
-        if(status==null)return;
-        String stage=prefs.getString("stage","idle");
-        if("done".equals(stage)) status.setText("Installed. One UI Home remains active. Marathon setup is complete.");
-        else if("permission".equals(stage)) status.setText("Waiting for Marathon Auto Setup permission.");
-        else if(prefs.getBoolean("setup_active",false)) status.setText("Setup is running: "+stage);
-        else status.setText("Ready. This build does not replace Samsung One UI Home.");
     }
 }
