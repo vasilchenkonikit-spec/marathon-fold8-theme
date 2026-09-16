@@ -39,10 +39,16 @@ jobs:
           PY
       - name: Apply v4.1 responsive Marathon Home
         run: |
-          base64 -d v4patch/LauncherActivity_v41.java.gz.b64 | gzip -d > v4build/app/src/main/java/com/nv/marathontheme/LauncherActivity.java
-          sed -i 's/applicationId "com.nv.marathontheme.v4"/applicationId "com.nv.marathontheme.v41"/' v4build/app/build.gradle
-          sed -i 's/versionCode 40/versionCode 41/' v4build/app/build.gradle || true
-          sed -i 's/versionName "4.0"/versionName "4.1"/' v4build/app/build.gradle || true
+          base64 -d v4patch/LauncherActivity_v412.java.gz.b64 | gzip -d > v4build/app/src/main/java/com/nv/marathontheme/LauncherActivity.java
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('v4build/app/build.gradle')
+          s=p.read_text()
+          s=s.replace("applicationId 'com.nv.marathontheme.v4'","applicationId 'com.nv.marathontheme.v41'")
+          s=s.replace('versionCode 40','versionCode 41')
+          s=s.replace("versionName '4.0'","versionName '4.1'")
+          p.write_text(s)
+          PY
           sed -i 's/Marathon Fold 8/Marathon Fold 8 v4.1/g' v4build/app/src/main/AndroidManifest.xml
           sed -i 's/AUTO INSTALLER v4/AUTO INSTALLER v4.1/g' v4build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
           grep -n 'applicationId\|versionCode\|versionName' v4build/app/build.gradle
