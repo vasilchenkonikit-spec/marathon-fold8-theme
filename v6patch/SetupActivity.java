@@ -11,7 +11,6 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.*;
 import android.widget.*;
-import java.io.IOException;
 import java.util.*;
 
 public class SetupActivity extends Activity {
@@ -27,6 +26,7 @@ public class SetupActivity extends Activity {
 
     private SharedPreferences prefs;
     private TextView status;
+    private boolean firstResume=true;
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
@@ -36,8 +36,25 @@ public class SetupActivity extends Activity {
 
     @Override protected void onResume(){
         super.onResume();
-        if(prefs.getBoolean("waiting_accessibility",false) && isAccessibilityEnabled()) beginSetup();
-        else refreshStatus();
+        String stage=prefs.getString("stage","idle");
+        boolean active=prefs.getBoolean("setup_active",false);
+
+        if(prefs.getBoolean("waiting_accessibility",false) && isAccessibilityEnabled()){
+            beginSetup();
+            firstResume=false;
+            return;
+        }
+
+        // When the Android live-wallpaper UI closes, continue automatically.
+        // v6.0 stopped here because it only refreshed the status text.
+        if(!firstResume && active && "wallpaper_picker".equals(stage)){
+            continueAfterWallpaper();
+            firstResume=false;
+            return;
+        }
+
+        firstResume=false;
+        refreshStatus();
     }
 
     private void buildUi(){
@@ -50,8 +67,8 @@ public class SetupActivity extends Activity {
         setContentView(scroll);
 
         root.addView(text("MARATHON // FOLD 8",32,ACID,true));
-        root.addView(text("COMPLETE ONE UI INSTALLER v6.0",18,Color.WHITE,true));
-        TextView info=text("ONE APK. One UI Home stays intact. Native swipe-up, app drawer, Samsung search and all existing widgets remain available. The package contains wallpapers, live wallpaper, icon pack and setup automation.",15,Color.LTGRAY,false);
+        root.addView(text("COMPLETE ONE UI INSTALLER v6.1",18,Color.WHITE,true));
+        TextView info=text("ONE APK. Samsung One UI Home stays intact: native swipe-up, app drawer, Samsung search and your existing widget layout are preserved. The installer applies the Marathon visual layer and then returns to One UI.",15,Color.LTGRAY,false);
         info.setPadding(0,dp(16),0,dp(20)); root.addView(info);
 
         status=text("",15,Color.WHITE,false);
@@ -67,7 +84,7 @@ public class SetupActivity extends Activity {
         install.setOnClickListener(v->startInstall());
         root.addView(install,new LinearLayout.LayoutParams(-1,dp(62)));
 
-        TextView details=text("Included: adaptive Marathon live wallpaper for folded/unfolded screens, 4K static wallpaper fallback, Marathon system icon pack, Theme Park automation, Keys Cafe hand-off, Lock screen/ClockFace hand-off, One UI restore protection and TickTick widget pin request. Android/Samsung confirmation dialogs may still appear once because apps cannot grant those permissions to themselves.",13,Color.GRAY,false);
+        TextView details=text("Sequence: permission -> Marathon wallpaper -> Theme Park/icons -> Keys Cafe -> ClockFace/LockStar -> TickTick widget request -> One UI Home. Samsung/Android may still show confirmation dialogs that third-party apps are not allowed to approve themselves.",13,Color.GRAY,false);
         details.setPadding(0,dp(20),0,0); root.addView(details);
     }
 
@@ -78,10 +95,10 @@ public class SetupActivity extends Activity {
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
     private void startInstall(){
-        prefs.edit().putBoolean("install_requested",true).apply();
+        prefs.edit().clear().putBoolean("install_requested",true).apply();
         if(!isAccessibilityEnabled()){
-            prefs.edit().putBoolean("waiting_accessibility",true).putString("stage","permission").apply();
-            status.setText("1/6 Enable Marathon Auto Setup once. Returning to this app continues automatically.");
+            prefs.edit().putBoolean("waiting_accessibility",true).putString("stage","permission").putLong("stage_time",System.currentTimeMillis()).apply();
+            status.setText("1/6 Enable Marathon Auto Setup once. Returning here continues automatically.");
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             return;
         }
@@ -89,20 +106,31 @@ public class SetupActivity extends Activity {
     }
 
     private void beginSetup(){
-        prefs.edit().putBoolean("waiting_accessibility",false).putBoolean("setup_active",true).putString("stage","ensure_home").apply();
+        prefs.edit().putBoolean("waiting_accessibility",false).putBoolean("setup_active",true).putString("stage","ensure_home").putLong("stage_time",System.currentTimeMillis()).apply();
         applyStaticFallback();
         if(!isOneUiHomeDefault()){
             status.setText("2/6 Restoring Samsung One UI Home before visual setup…");
             try{ startActivity(new Intent(Settings.ACTION_HOME_SETTINGS)); }
-            catch(Exception e){ launchOneUi(); launchWallpaperPicker(this); }
+            catch(Exception e){ launchOneUi(this); launchWallpaperPicker(this); }
         }else{
-            status.setText("2/6 One UI Home preserved. Opening Marathon live wallpaper…");
+            status.setText("2/6 One UI Home preserved. Opening Marathon wallpaper…");
             launchWallpaperPicker(this);
         }
     }
 
+    private void continueAfterWallpaper(){
+        prefs.edit().putString("stage","themepark").putLong("stage_time",System.currentTimeMillis()).apply();
+        status.setText("3/6 Wallpaper done. Opening Theme Park automatically…");
+        if(!launchPackage(this,THEME_PARK)){
+            if(!launchPackage(this,GOOD_LOCK)){
+                prefs.edit().putString("stage","themepark_missing").apply();
+                status.setText("Theme Park/Good Lock was not found. One UI Home is still intact.");
+            }
+        }
+    }
+
     static void launchWallpaperPicker(Context c){
-        c.getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("stage","wallpaper_picker").apply();
+        c.getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("stage","wallpaper_picker").putLong("stage_time",System.currentTimeMillis()).apply();
         try{
             Intent i=new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
             i.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,new ComponentName(c,MarathonWallpaperService.class));
@@ -163,7 +191,7 @@ public class SetupActivity extends Activity {
             }
             if(best==null)best=fallback;
             if(best==null)return false;
-            c.getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("stage","ticktick_pin").apply();
+            c.getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("stage","ticktick_pin").putLong("stage_time",System.currentTimeMillis()).apply();
             return m.requestPinAppWidget(best.provider,null,null);
         }catch(Exception e){return false;}
     }
@@ -180,7 +208,7 @@ public class SetupActivity extends Activity {
     private void refreshStatus(){
         if(status==null)return;
         String stage=prefs.getString("stage","idle");
-        if("done".equals(stage)) status.setText("Installed. One UI Home remains the launcher. Marathon visual layer is active.");
+        if("done".equals(stage)) status.setText("Installed. One UI Home remains active. Marathon setup is complete.");
         else if("permission".equals(stage)) status.setText("Waiting for Marathon Auto Setup permission.");
         else if(prefs.getBoolean("setup_active",false)) status.setText("Setup is running: "+stage);
         else status.setText("Ready. This build does not replace Samsung One UI Home.");
