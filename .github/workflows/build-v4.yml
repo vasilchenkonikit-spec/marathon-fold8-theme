@@ -25,6 +25,19 @@ jobs:
           unzip -t source_project_v4_min.zip
           rm -rf v4build && mkdir v4build
           unzip -q source_project_v4_min.zip -d v4build
+      - name: Patch missing v4 resources
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('v4build/app/src/main/res/values/strings.xml')
+          s=p.read_text()
+          add='\n<string name="accessibility_desc">Automatically applies Marathon settings after explicit permission.</string>\n<string name="wallpaper_name">Marathon 93 Adaptive Wallpaper</string>\n'
+          if 'name="accessibility_desc"' not in s:
+              s=s.replace('</resources>',add+'</resources>')
+          if 'name="wallpaper_name"' not in s:
+              s=s.replace('</resources>','<string name="wallpaper_name">Marathon 93 Adaptive Wallpaper</string>\n</resources>')
+          p.write_text(s)
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
