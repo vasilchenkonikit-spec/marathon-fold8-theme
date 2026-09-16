@@ -1,0 +1,1 @@
+v6.1 fixes automatic continuation after wallpaper picker. One UI Home preserved. Built from 045fa7199fd74c4438e224bcaace054aeba88af2 at 2026-09-16 09:30:08 UTC
