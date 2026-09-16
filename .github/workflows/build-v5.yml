@@ -1,4 +1,4 @@
-name: Build Marathon Fold8 v5 One UI
+name: Build Marathon Fold8 v5.1 One UI
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [ v5-oneui-installer ]
     paths-ignore:
       - dist-v5/**
+      - dist-v51/**
 
 permissions:
   contents: write
@@ -19,35 +20,36 @@ jobs:
         run: |
           { cat v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } > payload.b64
           test "$(wc -c < payload.b64)" -eq 231220
-          base64 -d payload.b64 > source_project_v5_base.zip
-          echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v5_base.zip' | sha256sum -c -
-          rm -rf v5build && mkdir v5build
-          unzip -q source_project_v5_base.zip -d v5build
-      - name: Apply v5 One UI patch
+          base64 -d payload.b64 > source_project_v51_base.zip
+          echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v51_base.zip' | sha256sum -c -
+          rm -rf v51build && mkdir v51build
+          unzip -q source_project_v51_base.zip -d v51build
+      - name: Apply v5.1 One UI patch
         run: |
-          cp v5patch/SetupActivity.java v5build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
-          cp v5patch/MarathonAccessibilityService.java v5build/app/src/main/java/com/nv/marathontheme/MarathonAccessibilityService.java
-          cp v5patch/AndroidManifest.xml v5build/app/src/main/AndroidManifest.xml
-          cp v5patch/accessibility_service_config.xml v5build/app/src/main/res/xml/accessibility_service_config.xml
+          cp v5patch/SetupActivity.java v51build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
+          cp v5patch/MarathonAccessibilityService.java v51build/app/src/main/java/com/nv/marathontheme/MarathonAccessibilityService.java
+          cp v5patch/AndroidManifest.xml v51build/app/src/main/AndroidManifest.xml
+          cp v5patch/accessibility_service_config.xml v51build/app/src/main/res/xml/accessibility_service_config.xml
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p=Path('v5build/app/build.gradle')
+          p=Path('v51build/app/build.gradle')
           s=p.read_text()
-          s=re.sub(r"applicationId\s+['\"][^'\"]+['\"]", "applicationId 'com.nv.marathontheme.v5'", s)
-          s=re.sub(r'versionCode\s+\d+', 'versionCode 50', s)
-          s=re.sub(r"versionName\s+['\"][^'\"]+['\"]", "versionName '5.0'", s)
+          s=re.sub(r"applicationId\s+['\"][^'\"]+['\"]", "applicationId 'com.nv.marathontheme.v51'", s)
+          s=re.sub(r'versionCode\s+\d+', 'versionCode 51', s)
+          s=re.sub(r"versionName\s+['\"][^'\"]+['\"]", "versionName '5.1'", s)
           p.write_text(s)
-          sp=Path('v5build/app/src/main/res/values/strings.xml')
+          sp=Path('v51build/app/src/main/res/values/strings.xml')
           x=sp.read_text()
           if 'name="accessibility_desc"' not in x:
-              x=x.replace('</resources>','<string name="accessibility_desc">One-time Marathon setup automation for Theme Park. One UI Home remains unchanged.</string>\n</resources>')
+              x=x.replace('</resources>','<string name="accessibility_desc">One-time Marathon setup automation for Samsung One UI and Theme Park. Existing widgets and launcher layout stay intact.</string>\n</resources>')
           if 'name="wallpaper_name"' not in x:
-              x=x.replace('</resources>','<string name="wallpaper_name">Marathon 93 Wallpaper</string>\n</resources>')
+              x=x.replace('</resources>','<string name="wallpaper_name">Marathon 93 Adaptive Wallpaper</string>\n</resources>')
           sp.write_text(x)
           PY
-          grep -n 'applicationId\|versionCode\|versionName' v5build/app/build.gradle
-          ! grep -q 'android.intent.category.HOME' v5build/app/src/main/AndroidManifest.xml
+          sed -i 's/Marathon Fold 8 v5/Marathon Fold 8 v5.1/g' v51build/app/src/main/AndroidManifest.xml
+          grep -n 'applicationId\|versionCode\|versionName' v51build/app/build.gradle
+          ! grep -q 'android.intent.category.HOME' v51build/app/src/main/AndroidManifest.xml
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -59,33 +61,33 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build v5 APK
-        working-directory: v5build
+      - name: Build v5.1 APK
+        working-directory: v51build
         run: gradle :app:assembleDebug --stacktrace
       - name: Verify APK and manifest
         run: |
-          APK=v5build/app/build/outputs/apk/debug/app-debug.apk
+          APK=v51build/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner verify --verbose "$APK"
           /usr/local/lib/android/sdk/build-tools/35.0.0/aapt dump xmltree "$APK" AndroidManifest.xml | tee manifest.txt
           ! grep -q 'android.intent.category.HOME' manifest.txt
-          cp "$APK" Marathon_Fold8_OneUI_Installer_v5.apk
-          sha256sum Marathon_Fold8_OneUI_Installer_v5.apk > SHA256.txt
+          cp "$APK" Marathon_Fold8_OneUI_Installer_v5_1.apk
+          sha256sum Marathon_Fold8_OneUI_Installer_v5_1.apk > SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Marathon-Fold8-OneUI-v5
+          name: Marathon-Fold8-OneUI-v5-1
           path: |
-            Marathon_Fold8_OneUI_Installer_v5.apk
+            Marathon_Fold8_OneUI_Installer_v5_1.apk
             SHA256.txt
             manifest.txt
       - name: Publish APK
         run: |
-          mkdir -p dist-v5
-          cp Marathon_Fold8_OneUI_Installer_v5.apk dist-v5/
-          cp SHA256.txt manifest.txt dist-v5/
-          printf 'v5 keeps Samsung One UI Home. Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v5/BUILD_SUCCESS.txt
+          mkdir -p dist-v51
+          cp Marathon_Fold8_OneUI_Installer_v5_1.apk dist-v51/
+          cp SHA256.txt manifest.txt dist-v51/
+          printf 'v5.1 preserves Samsung One UI Home, native widgets and swipe-up drawer. Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v51/BUILD_SUCCESS.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add dist-v5
-          git commit -m 'Publish Marathon Fold8 One UI v5 APK [skip ci]' || true
+          git add dist-v51
+          git commit -m 'Publish Marathon Fold8 One UI v5.1 APK [skip ci]' || true
           git push || true
