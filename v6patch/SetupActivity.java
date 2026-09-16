@@ -6,6 +6,7 @@ import android.app.WallpaperManager;
 import android.content.*;
 import android.content.pm.*;
 import android.graphics.*;
+import android.graphics.drawable.GradientDrawable;
 import android.os.*;
 import android.view.*;
 import android.widget.*;
