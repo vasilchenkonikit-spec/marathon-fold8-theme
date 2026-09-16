@@ -1,11 +1,11 @@
-name: Build Marathon Fold8 v6 Complete
+name: Build Marathon Fold8 v6.1 Complete
 
 on:
   workflow_dispatch:
   push:
     branches: [ v6-all-in-one ]
     paths-ignore:
-      - dist-v6/**
+      - dist-v61/**
 
 permissions:
   contents: write
@@ -20,33 +20,32 @@ jobs:
         run: |
           { cat v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } > payload.b64
           test "$(wc -c < payload.b64)" -eq 231220
-          base64 -d payload.b64 > source_project_v6_base.zip
-          echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v6_base.zip' | sha256sum -c -
-          rm -rf v6build && mkdir v6build
-          unzip -q source_project_v6_base.zip -d v6build
+          base64 -d payload.b64 > source_project_v61_base.zip
+          echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v61_base.zip' | sha256sum -c -
+          rm -rf v61build && mkdir v61build
+          unzip -q source_project_v61_base.zip -d v61build
 
-      - name: Apply v6 all-in-one patch
+      - name: Apply v6.1 all-in-one patch
         run: |
-          cp v6patch/SetupActivity.java v6build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
-          sed -i 's/launchOneUi();/launchOneUi(this);/' v6build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
-          cp v6patch/MarathonAccessibilityService.java v6build/app/src/main/java/com/nv/marathontheme/MarathonAccessibilityService.java
-          cp v6patch/MarathonWallpaperService.java v6build/app/src/main/java/com/nv/marathontheme/MarathonWallpaperService.java
-          cp v6patch/AndroidManifest.xml v6build/app/src/main/AndroidManifest.xml
-          cp v6patch/accessibility_service_config.xml v6build/app/src/main/res/xml/accessibility_service_config.xml
-          cat > v6build/app/src/main/res/xml/wallpaper.xml <<'EOF'
+          cp v6patch/SetupActivity.java v61build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
+          cp v6patch/MarathonAccessibilityService.java v61build/app/src/main/java/com/nv/marathontheme/MarathonAccessibilityService.java
+          cp v6patch/MarathonWallpaperService.java v61build/app/src/main/java/com/nv/marathontheme/MarathonWallpaperService.java
+          cp v6patch/AndroidManifest.xml v61build/app/src/main/AndroidManifest.xml
+          cp v6patch/accessibility_service_config.xml v61build/app/src/main/res/xml/accessibility_service_config.xml
+          cat > v61build/app/src/main/res/xml/wallpaper.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <wallpaper xmlns:android="http://schemas.android.com/apk/res/android" android:description="@string/wallpaper_desc" />
           EOF
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p=Path('v6build/app/build.gradle')
+          p=Path('v61build/app/build.gradle')
           s=p.read_text()
-          s=re.sub(r"applicationId\s+['\"][^'\"]+['\"]", "applicationId 'com.nv.marathontheme.v6'", s)
-          s=re.sub(r'versionCode\s+\d+', 'versionCode 60', s)
-          s=re.sub(r"versionName\s+['\"][^'\"]+['\"]", "versionName '6.0'", s)
+          s=re.sub(r"applicationId\s+['\"][^'\"]+['\"]", "applicationId 'com.nv.marathontheme.v61'", s)
+          s=re.sub(r'versionCode\s+\d+', 'versionCode 61', s)
+          s=re.sub(r"versionName\s+['\"][^'\"]+['\"]", "versionName '6.1'", s)
           p.write_text(s)
-          sp=Path('v6build/app/src/main/res/values/strings.xml')
+          sp=Path('v61build/app/src/main/res/values/strings.xml')
           x=sp.read_text()
           if 'name="accessibility_desc"' not in x:
               x=x.replace('</resources>','<string name="accessibility_desc">One-time Marathon setup automation. One UI Home remains the launcher.</string>\n</resources>')
@@ -54,7 +53,7 @@ jobs:
               x=x.replace('</resources>','<string name="wallpaper_desc">Marathon 93 adaptive Fold wallpaper</string>\n</resources>')
           sp.write_text(x)
           PY
-          ! grep -q 'android.intent.category.HOME' v6build/app/src/main/AndroidManifest.xml
+          ! grep -q 'android.intent.category.HOME' v61build/app/src/main/AndroidManifest.xml
 
       - name: Generate high-resolution Fold wallpapers
         run: |
@@ -63,7 +62,7 @@ jobs:
           from PIL import Image, ImageFilter, ImageEnhance
           import numpy as np
           from pathlib import Path
-          src=Path('v6build/app/src/main/res/drawable-nodpi')
+          src=Path('v61build/app/src/main/res/drawable-nodpi')
           def upscale(inp,out,size):
               im=Image.open(inp).convert('RGB')
               mid=(max(im.width*2,size[0]//2),max(im.height*2,size[1]//2))
@@ -79,8 +78,6 @@ jobs:
           upscale(src/'wallpaper_cover.jpg',src/'wallpaper_cover_4k.jpg',(2160,3413))
           Path('Marathon_Wallpaper_Inner_4K.jpg').write_bytes((src/'wallpaper_inner_4k.jpg').read_bytes())
           Path('Marathon_Wallpaper_Cover_4K.jpg').write_bytes((src/'wallpaper_cover_4k.jpg').read_bytes())
-          print('inner',Image.open(src/'wallpaper_inner_4k.jpg').size)
-          print('cover',Image.open(src/'wallpaper_cover_4k.jpg').size)
           PY
 
       - uses: actions/setup-java@v4
@@ -97,43 +94,43 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build v6 APK
-        working-directory: v6build
+      - name: Build v6.1 APK
+        working-directory: v61build
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Verify APK and package
         run: |
-          APK=v6build/app/build/outputs/apk/debug/app-debug.apk
+          APK=v61build/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner verify --verbose "$APK"
           /usr/local/lib/android/sdk/build-tools/35.0.0/aapt dump xmltree "$APK" AndroidManifest.xml | tee manifest.txt
           ! grep -q 'android.intent.category.HOME' manifest.txt
           grep -q 'MarathonWallpaperService' manifest.txt
           grep -q 'MarathonAccessibilityService' manifest.txt
-          cp "$APK" Marathon_Fold8_Complete_v6.apk
-          sha256sum Marathon_Fold8_Complete_v6.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg > SHA256.txt
+          cp "$APK" Marathon_Fold8_Complete_v6_1.apk
+          sha256sum Marathon_Fold8_Complete_v6_1.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg > SHA256.txt
           mkdir -p bundle
-          cp Marathon_Fold8_Complete_v6.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg SHA256.txt manifest.txt bundle/
-          (cd bundle && zip -9 ../Marathon_Fold8_v6_COMPLETE.zip *)
+          cp Marathon_Fold8_Complete_v6_1.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg SHA256.txt manifest.txt bundle/
+          (cd bundle && zip -9 ../Marathon_Fold8_v6_1_COMPLETE.zip *)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Marathon-Fold8-v6-COMPLETE
+          name: Marathon-Fold8-v6-1-COMPLETE
           path: |
-            Marathon_Fold8_Complete_v6.apk
+            Marathon_Fold8_Complete_v6_1.apk
             Marathon_Wallpaper_Inner_4K.jpg
             Marathon_Wallpaper_Cover_4K.jpg
-            Marathon_Fold8_v6_COMPLETE.zip
+            Marathon_Fold8_v6_1_COMPLETE.zip
             SHA256.txt
             manifest.txt
 
-      - name: Publish final v6 bundle
+      - name: Publish final v6.1 bundle
         run: |
-          mkdir -p dist-v6
-          cp Marathon_Fold8_Complete_v6.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg Marathon_Fold8_v6_COMPLETE.zip SHA256.txt manifest.txt dist-v6/
-          printf 'Single APK v6 complete build. One UI Home preserved. Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v6/BUILD_SUCCESS.txt
+          mkdir -p dist-v61
+          cp Marathon_Fold8_Complete_v6_1.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg Marathon_Fold8_v6_1_COMPLETE.zip SHA256.txt manifest.txt dist-v61/
+          printf 'v6.1 fixes automatic continuation after wallpaper picker. One UI Home preserved. Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v61/BUILD_SUCCESS.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add dist-v6
-          git commit -m 'Publish Marathon Fold8 v6 complete bundle [skip ci]' || true
+          git add dist-v61
+          git commit -m 'Publish Marathon Fold8 v6.1 complete bundle [skip ci]' || true
           git push || true
