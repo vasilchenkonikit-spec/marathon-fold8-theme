@@ -30,6 +30,7 @@ jobs:
           cp v6patch/SetupActivity.java v7build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
           cp v6patch/MarathonWallpaperService.java v7build/app/src/main/java/com/nv/marathontheme/MarathonWallpaperService.java
           cp v6patch/AndroidManifest.xml v7build/app/src/main/AndroidManifest.xml
+          rm -f v7build/app/src/main/res/xml/accessibility_service_config.xml
           cat > v7build/app/src/main/res/xml/wallpaper.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <wallpaper xmlns:android="http://schemas.android.com/apk/res/android" android:description="@string/wallpaper_desc" />
