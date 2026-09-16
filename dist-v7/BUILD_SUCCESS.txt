@@ -1,0 +1,1 @@
+Stable guided installer. No accessibility automation. One UI Home preserved. Built from d25b823c4b5ff9b135f6a1e58d89e8407e151e54 at 2026-09-16 09:55:59 UTC
