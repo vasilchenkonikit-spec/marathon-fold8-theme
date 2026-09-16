@@ -1,0 +1,1 @@
+Marathon Fold8 v5 One UI installer patch. Keeps Samsung One UI Home as the default launcher and applies theme changes without replacing the launcher.
