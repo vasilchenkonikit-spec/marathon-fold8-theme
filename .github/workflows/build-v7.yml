@@ -1,0 +1,133 @@
+name: Build Marathon Fold8 v7 Stable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ v7-stable-guide ]
+    paths-ignore:
+      - dist-v7/**
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Android base project
+        run: |
+          { cat v4src/part_01.b64 v4src/part_02a.b64 v4src/part_02b.b64 v4src/part_03.b64 v4src/part_04.b64 v4src/part_05.b64 v4src/part_06.b64 v4src/part_07.b64 v4src/part_08.b64 v4src/part_09.b64 v4src/part_10.b64 v4src/part_11.b64 v4src/part_12.b64 v4src/part_13.b64 v4src/part_14.b64; } > payload.b64
+          test "$(wc -c < payload.b64)" -eq 231220
+          base64 -d payload.b64 > source_project_v7_base.zip
+          echo '7125a5c3587298a62d6b20da4d0df66f55523a41732b456004f562bd3d3c6268  source_project_v7_base.zip' | sha256sum -c -
+          rm -rf v7build && mkdir v7build
+          unzip -q source_project_v7_base.zip -d v7build
+
+      - name: Apply v7 stable patch
+        run: |
+          cp v6patch/SetupActivity.java v7build/app/src/main/java/com/nv/marathontheme/SetupActivity.java
+          cp v6patch/MarathonWallpaperService.java v7build/app/src/main/java/com/nv/marathontheme/MarathonWallpaperService.java
+          cp v6patch/AndroidManifest.xml v7build/app/src/main/AndroidManifest.xml
+          cat > v7build/app/src/main/res/xml/wallpaper.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <wallpaper xmlns:android="http://schemas.android.com/apk/res/android" android:description="@string/wallpaper_desc" />
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('v7build/app/build.gradle')
+          s=p.read_text()
+          s=re.sub(r"applicationId\s+['\"][^'\"]+['\"]", "applicationId 'com.nv.marathontheme.v7'", s)
+          s=re.sub(r'versionCode\s+\d+', 'versionCode 70', s)
+          s=re.sub(r"versionName\s+['\"][^'\"]+['\"]", "versionName '7.0'", s)
+          p.write_text(s)
+          sp=Path('v7build/app/src/main/res/values/strings.xml')
+          x=sp.read_text()
+          if 'name="wallpaper_desc"' not in x:
+              x=x.replace('</resources>','<string name="wallpaper_desc">Marathon 93 adaptive Fold wallpaper</string>\n</resources>')
+          sp.write_text(x)
+          PY
+          ! grep -q 'android.intent.category.HOME' v7build/app/src/main/AndroidManifest.xml
+          ! grep -q 'BIND_ACCESSIBILITY_SERVICE' v7build/app/src/main/AndroidManifest.xml
+
+      - name: Generate high-resolution Fold wallpapers
+        run: |
+          python3 -m pip install --quiet pillow numpy
+          python3 - <<'PY'
+          from PIL import Image, ImageFilter, ImageEnhance
+          import numpy as np
+          from pathlib import Path
+          src=Path('v7build/app/src/main/res/drawable-nodpi')
+          def upscale(inp,out,size):
+              im=Image.open(inp).convert('RGB')
+              mid=(max(im.width*2,size[0]//2),max(im.height*2,size[1]//2))
+              im=im.resize(mid,Image.Resampling.LANCZOS).resize(size,Image.Resampling.LANCZOS)
+              im=ImageEnhance.Contrast(im).enhance(1.04)
+              im=ImageEnhance.Sharpness(im).enhance(1.18)
+              im=im.filter(ImageFilter.UnsharpMask(radius=1.1,percent=75,threshold=3))
+              a=np.asarray(im).astype(np.int16)
+              rng=np.random.default_rng(93)
+              a=np.clip(a+rng.normal(0,0.65,size=(a.shape[0],a.shape[1],1)),0,255).astype(np.uint8)
+              Image.fromarray(a).save(out,'JPEG',quality=96,subsampling=0,optimize=True)
+          upscale(src/'wallpaper_inner.jpg',src/'wallpaper_inner_4k.jpg',(3840,2880))
+          upscale(src/'wallpaper_cover.jpg',src/'wallpaper_cover_4k.jpg',(2160,3413))
+          Path('Marathon_Wallpaper_Inner_4K.jpg').write_bytes((src/'wallpaper_inner_4k.jpg').read_bytes())
+          Path('Marathon_Wallpaper_Cover_4K.jpg').write_bytes((src/'wallpaper_cover_4k.jpg').read_bytes())
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK 35
+        run: |
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build v7 APK
+        working-directory: v7build
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Verify APK and package
+        run: |
+          APK=v7build/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner verify --verbose "$APK"
+          /usr/local/lib/android/sdk/build-tools/35.0.0/aapt dump xmltree "$APK" AndroidManifest.xml | tee manifest.txt
+          ! grep -q 'android.intent.category.HOME' manifest.txt
+          ! grep -q 'BIND_ACCESSIBILITY_SERVICE' manifest.txt
+          grep -q 'MarathonWallpaperService' manifest.txt
+          cp "$APK" Marathon_Fold8_Stable_v7.apk
+          sha256sum Marathon_Fold8_Stable_v7.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg > SHA256.txt
+          mkdir -p bundle
+          cp Marathon_Fold8_Stable_v7.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg SHA256.txt manifest.txt bundle/
+          (cd bundle && zip -9 ../Marathon_Fold8_v7_STABLE.zip *)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Marathon-Fold8-v7-STABLE
+          path: |
+            Marathon_Fold8_Stable_v7.apk
+            Marathon_Wallpaper_Inner_4K.jpg
+            Marathon_Wallpaper_Cover_4K.jpg
+            Marathon_Fold8_v7_STABLE.zip
+            SHA256.txt
+            manifest.txt
+
+      - name: Publish v7 stable bundle
+        run: |
+          mkdir -p dist-v7
+          cp Marathon_Fold8_Stable_v7.apk Marathon_Wallpaper_Inner_4K.jpg Marathon_Wallpaper_Cover_4K.jpg Marathon_Fold8_v7_STABLE.zip SHA256.txt manifest.txt dist-v7/
+          printf 'Stable guided installer. No accessibility automation. One UI Home preserved. Built from %s at %s UTC\n' "$GITHUB_SHA" "$(date -u '+%Y-%m-%d %H:%M:%S')" > dist-v7/BUILD_SUCCESS.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add dist-v7
+          git commit -m 'Publish Marathon Fold8 v7 stable [skip ci]' || true
+          git push || true
